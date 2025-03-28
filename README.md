@@ -2,11 +2,12 @@
 
 A local development environment that mimics the [Kraken Spot REST API](https://docs.kraken.com/api/docs/rest-api/add-order) for testing and development purposes.
 
+### Why?
 Kraken support regarding access to a Staging/UAT API:
 > We currently provide a UAT environment which is used for testing, however, this is only available for the Business Pro account and third party service developers. If you are interested in this and not a third party service developer, then please generate a business pro account with Kraken and after generating an account we can further move to create an UAT environment for you.
 > If you are a third party service developer, can you provide some details on which APIs and endpoints you will be using, details of the company, and the use case for the API.
 
-Fuck that.
+Umm yeah, fuck that.
 
 ## Supported Endpoints
 
@@ -50,6 +51,10 @@ The 5% threshold simulates a reasonable price range for immediate execution, whi
 - BTC/AUD (XXBTZAUD)
 - ETH/AUD (XETHZAUD)
 
+### Adding New Pairs
+
+To add new trading pairs, update the `seed_asset_pairs` function in `database.py`.
+
 ## Getting Started
 
 ### Using Docker (Recommended)
@@ -65,7 +70,7 @@ The 5% threshold simulates a reasonable price range for immediate execution, whi
    docker compose up
    ```
 
-3. The API will be available at http://localhost:5001 and API credentials will be printed to the console. If you choose to start the server with `docker compose up -d` you can find the API credentials via `docker compose logs kraken-sandbox`
+3. The API will be available at http://localhost:5001 and API credentials will be printed to the console and are available at http://localhost:5001/admin. If you started the server with `docker compose up -d` you can also find the credentials via `docker compose logs kraken-sandbox`
 
 ### Manual Setup
 
@@ -85,7 +90,7 @@ The 5% threshold simulates a reasonable price range for immediate execution, whi
    python app.py
    ```
 
-4. The API will be available at http://localhost:5001 and API credentials will be printed to the console.
+4. The API will be available at http://localhost:5001 and API credentials will be printed to the console & are available at http://localhost:5001/admin.
 
 ### Making API Requests
 
@@ -139,6 +144,22 @@ The test script will:
 
 Successful tests will be marked with a green check mark, while failures will show a red X with error details.
 
-## Adding New Pairs
+## Admin Dashboard
 
-To add new trading pairs, update the `seed_asset_pairs` function in `database.py`.
+The Kraken Sandbox includes an admin dashboard that provides a user-friendly interface to view all data in the database, including:
+
+- API Credentials
+- Assets
+- Asset Pairs
+- Account Balances
+- Orders
+- Trades
+
+To access the admin dashboard, navigate to:
+```
+http://localhost:5001/admin
+```
+
+The dashboard provides a single-page application interface with tabs for each data category, allowing you to easily monitor the state of the sandbox environment.
+
+![Kraken Sandbox Admin Dashboard](static/sandbox-sc.png)

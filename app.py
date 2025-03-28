@@ -5,7 +5,7 @@ import string
 import logging
 import json
 import sys
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, render_template
 from pathlib import Path
 from api import public_endpoints, private_endpoints
 from database import init_db, get_db
@@ -64,6 +64,60 @@ def index():
         "message": "Kraken Sandbox API is running",
         "version": "1.0.0"
     })
+
+# Admin SPA route
+@app.route('/admin')
+def admin_dashboard():
+    return render_template('index.html')
+
+# Admin API endpoints for the SPA
+@app.route('/admin/api/credentials')
+def admin_api_credentials():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, api_key, api_secret, created_at FROM api_credentials')
+    credentials = [dict(row) for row in cursor.fetchall()]
+    return jsonify(credentials)
+
+@app.route('/admin/api/assets')
+def admin_api_assets():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, asset, asset_name, decimals, display_decimals, status, created_at FROM assets')
+    assets = [dict(row) for row in cursor.fetchall()]
+    return jsonify(assets)
+
+@app.route('/admin/api/asset_pairs')
+def admin_api_asset_pairs():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, pair_name, altname, wsname, base, quote, status, created_at FROM asset_pairs')
+    pairs = [dict(row) for row in cursor.fetchall()]
+    return jsonify(pairs)
+
+@app.route('/admin/api/account_balances')
+def admin_api_account_balances():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, api_key, asset, balance, updated_at FROM account_balances')
+    balances = [dict(row) for row in cursor.fetchall()]
+    return jsonify(balances)
+
+@app.route('/admin/api/orders')
+def admin_api_orders():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, order_id, api_key, pair, type, order_type, price, volume, status, opened_time, closed_time, updated_at FROM orders')
+    orders = [dict(row) for row in cursor.fetchall()]
+    return jsonify(orders)
+
+@app.route('/admin/api/trades')
+def admin_api_trades():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, trade_id, order_id, api_key, pair, type, price, volume, time, created_at FROM trades')
+    trades = [dict(row) for row in cursor.fetchall()]
+    return jsonify(trades)
 
 # Register public API endpoints
 app.register_blueprint(public_endpoints.bp)
