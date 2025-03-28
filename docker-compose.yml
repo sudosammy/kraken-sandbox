@@ -1,0 +1,25 @@
+services:
+  kraken-sandbox:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/app/data
+      - .:/app:ro
+    environment:
+      - FLASK_ENV=development
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: 512M
+        reservations:
+          cpus: 0.1
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE 
