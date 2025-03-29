@@ -5,7 +5,8 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    gcc \
+    net-tools \
+    dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Requirements will be mounted from the host
@@ -14,8 +15,8 @@ RUN --mount=type=bind,source=requirements.txt,target=/app/requirements.txt \
 
 # No need to copy files as they will be mounted as a volume
 
-EXPOSE 5000
+EXPOSE 5555
 
 USER nobody
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:5555", "app:app"] 

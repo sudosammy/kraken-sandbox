@@ -65,12 +65,17 @@ To add new trading pairs, update the `seed_asset_pairs` function in `database.py
    cd kraken-sandbox
    ```
 
-2. Start the Docker container:
+2. Create the docker network. This will expose the container at `kraken-sandbox:5555` to other containers on this network:
+   ```
+   docker network create kraken_network
+   ```
+
+3. Start the Docker container:
    ```
    docker compose up
    ```
 
-3. The API will be available at http://localhost:5001 and API credentials will be printed to the console and are available at http://localhost:5001/admin. If you started the server with `docker compose up -d` you can also find the credentials via `docker compose logs kraken-sandbox`
+4. The API will be available outside the container at http://localhost:5555 and API credentials will be printed to the console and are available at http://localhost:5555/admin. If you started the server with `docker compose up -d` you can also find the credentials via `docker compose logs kraken-sandbox`
 
 ### Manual Setup
 
@@ -90,16 +95,18 @@ To add new trading pairs, update the `seed_asset_pairs` function in `database.py
    python app.py
    ```
 
-4. The API will be available at http://localhost:5001 and API credentials will be printed to the console & are available at http://localhost:5001/admin.
+4. The API will be available at http://localhost:5555 and API credentials will be printed to the console & are available at http://localhost:5555/admin.
 
 ### Making API Requests
+
+If you want to access the API from another container, ensure you have created the `kraken_network` network and specify it via `--network` or an `external: true` network configuration in the other container's `docker-compose.yml`. Then the sandbox API will be available at `http://kraken-sandbox:5555`.
 
 #### Public Endpoints
 
 Public endpoints can be accessed directly via GET requests:
 
 ```
-curl http://localhost:5001/0/public/Ticker?pair=XXBTZUSD
+curl http://localhost:5555/0/public/Ticker?pair=XXBTZUSD
 ```
 
 #### Private Endpoints
@@ -111,7 +118,7 @@ curl -X POST \
   -H "API-Key: YOUR_API_KEY" \
   -H "API-Sign: YOUR_API_SIGN" \
   -d "nonce=$(date +%s000)" \
-  http://localhost:5001/0/private/Balance
+  http://localhost:5555/0/private/Balance
 ```
 
 ## API Key Authentication
@@ -132,7 +139,7 @@ To run the test script:
 
 ```bash
 # After starting the API server
-./test_kraken_sandbox.sh localhost:5001 your_api_key your_api_secret
+./test_kraken_sandbox.sh localhost:5555 your_api_key your_api_secret
 ```
 
 The test script will:
@@ -157,7 +164,7 @@ The Kraken Sandbox includes an admin dashboard that provides a user-friendly int
 
 To access the admin dashboard, navigate to:
 ```
-http://localhost:5001/admin
+http://localhost:5555/admin
 ```
 
 The dashboard provides a single-page application interface with tabs for each data category, allowing you to easily monitor the state of the sandbox environment.
