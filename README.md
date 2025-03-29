@@ -97,6 +97,16 @@ To add new trading pairs, update the `seed_asset_pairs` function in `database.py
 
 4. The API will be available at http://localhost:5555 and API credentials will be printed to the console & are available at http://localhost:5555/admin.
 
+### Configuring Logging
+
+The API's logging level can be configured using the `LOG_LEVEL` environment variable. Supported levels are:
+
+- `DEBUG`: Detailed debug information
+- `INFO`: Confirmation that things are working as expected (default)
+- `WARNING`: Indication that something unexpected happened
+- `ERROR`: An error occurred but the application can continue
+- `CRITICAL`: A serious error that may prevent the application from continuing
+
 ### Making API Requests
 
 If you want to access the API from another container, ensure you have created the `kraken_network` network and specify it via `--network` or an `external: true` network configuration in the other container's `docker-compose.yml`. Then the sandbox API will be available at `http://kraken-sandbox:5555`.
@@ -162,11 +172,6 @@ The Kraken Sandbox includes an admin dashboard that provides a user-friendly int
 - Orders
 - Trades
 
-To access the admin dashboard, navigate to:
-```
-http://localhost:5555/admin
-```
-
-The dashboard provides a single-page application interface with tabs for each data category, allowing you to easily monitor the state of the sandbox environment.
+To access the admin dashboard, navigate to: `http://localhost:5555/admin`. The dashboard provides a single-page application interface with tabs for each data category, allowing you to easily monitor the state of the sandbox environment.
 
 ![Kraken Sandbox Admin Dashboard](static/sandbox-sc.png)

@@ -12,16 +12,44 @@ logger = logging.getLogger(__name__)
 # Create Blueprint for public endpoints
 bp = Blueprint('public', __name__, url_prefix='/0/public')
 
-@bp.route('/AssetPairs', methods=['GET'])
+def get_params():
+    """Helper function to get parameters from all possible sources.
+    
+    This function collects parameters from query string, form data, and JSON body,
+    ensuring endpoint handlers can access parameters regardless of how they're sent.
+    
+    Returns:
+        dict: Combined parameters from all sources
+    """
+    # Start with query parameters (present in both GET and POST)
+    params = request.args.copy()
+    
+    # If it's a POST request, also check form data and JSON content
+    if request.method == 'POST':
+        # Add form data if present
+        if request.form:
+            for key in request.form:
+                params[key] = request.form[key]
+                
+        # Add JSON data if present and is a dict
+        if request.is_json and request.json and isinstance(request.json, dict):
+            for key in request.json:
+                params[key] = request.json[key]
+                
+    return params
+
+@bp.route('/AssetPairs', methods=['GET', 'POST'])
 def asset_pairs():
     """Get tradable asset pairs
     
     Endpoint implementation based on: 
     https://docs.kraken.com/api/docs/rest-api/get-tradable-asset-pairs
     """
-    pair = request.args.get('pair')
-    info = request.args.get('info', 'info')
-    country_code = request.args.get('country_code')
+    params = get_params()
+    
+    pair = params.get('pair')
+    info = params.get('info', 'info')
+    country_code = params.get('country_code')
     
     db = g.db
     cursor = db.cursor()
@@ -93,14 +121,16 @@ def asset_pairs():
             'result': {}
         }), 500
 
-@bp.route('/Ticker', methods=['GET'])
+@bp.route('/Ticker', methods=['GET', 'POST'])
 def ticker():
     """Get ticker information
     
     Endpoint implementation based on: 
     https://docs.kraken.com/api/docs/rest-api/get-ticker-information
     """
-    pair = request.args.get('pair')
+    params = get_params()
+    
+    pair = params.get('pair')
     
     db = g.db
     cursor = db.cursor()
@@ -173,16 +203,18 @@ def ticker():
             'result': {}
         }), 500
 
-@bp.route('/OHLC', methods=['GET'])
+@bp.route('/OHLC', methods=['GET', 'POST'])
 def ohlc():
     """Get OHLC data
     
     Endpoint implementation based on: 
     https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
     """
-    pair = request.args.get('pair')
-    interval = request.args.get('interval', '1')  # Default 1 minute
-    since = request.args.get('since')
+    params = get_params()
+    
+    pair = params.get('pair')
+    interval = params.get('interval', '1')  # Default 1 minute
+    since = params.get('since')
     
     if not pair:
         return jsonify({
@@ -211,7 +243,7 @@ def ohlc():
             'result': {}
         }), 500
 
-@bp.route('/Time', methods=['GET'])
+@bp.route('/Time', methods=['GET', 'POST'])
 def server_time():
     """Get server time
     
@@ -241,15 +273,17 @@ def server_time():
             'result': {}
         }), 500
 
-@bp.route('/Assets', methods=['GET'])
+@bp.route('/Assets', methods=['GET', 'POST'])
 def assets():
     """Get asset info
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/get-asset-info
     """
-    asset = request.args.get('asset')
-    aclass = request.args.get('aclass', 'currency')
+    params = get_params()
+    
+    asset = params.get('asset')
+    aclass = params.get('aclass', 'currency')
     
     db = g.db
     cursor = db.cursor()
@@ -301,15 +335,17 @@ def assets():
             'result': {}
         }), 500
 
-@bp.route('/Depth', methods=['GET'])
+@bp.route('/Depth', methods=['GET', 'POST'])
 def order_book():
     """Get order book
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/get-order-book
     """
-    pair = request.args.get('pair')
-    count = request.args.get('count', '100')
+    params = get_params()
+    
+    pair = params.get('pair')
+    count = params.get('count', '100')
     
     if not pair:
         return jsonify({
@@ -360,16 +396,18 @@ def order_book():
             'result': {}
         }), 500
 
-@bp.route('/Trades', methods=['GET'])
+@bp.route('/Trades', methods=['GET', 'POST'])
 def trades():
     """Get recent trades
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/get-recent-trades
     """
-    pair = request.args.get('pair')
-    since = request.args.get('since')
-    count = request.args.get('count', '1000')  # Not in official API but useful for limiting
+    params = get_params()
+    
+    pair = params.get('pair')
+    since = params.get('since')
+    count = params.get('count', '1000')  # Not in official API but useful for limiting
     
     if not pair:
         return jsonify({
@@ -443,15 +481,17 @@ def trades():
             'result': {}
         }), 500
 
-@bp.route('/Spread', methods=['GET'])
+@bp.route('/Spread', methods=['GET', 'POST'])
 def spread():
     """Get recent spreads
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/get-recent-spreads
     """
-    pair = request.args.get('pair')
-    since = request.args.get('since')
+    params = get_params()
+    
+    pair = params.get('pair')
+    since = params.get('since')
     
     if not pair:
         return jsonify({
@@ -510,7 +550,7 @@ def spread():
             'result': {}
         }), 500
 
-@bp.route('/SystemStatus', methods=['GET'])
+@bp.route('/SystemStatus', methods=['GET', 'POST'])
 def system_status():
     """Get system status
     

@@ -10,10 +10,14 @@ from pathlib import Path
 from api import public_endpoints, private_endpoints
 from database import init_db, get_db
 from auth import generate_api_credentials, get_api_credentials
+import utils
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
+log_level = getattr(logging, log_level_name, logging.INFO)
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
+logger.info(f"Logging level set to {log_level_name}")
 
 # Create Flask app
 app = Flask(__name__)
@@ -26,6 +30,8 @@ app.config['DATABASE'] = str(data_dir / 'kraken_sandbox.db')
 @app.before_request
 def before_request():
     g.db = get_db()
+    # Log all HTTP requests to the server
+    utils.log_request_info()
 
 @app.teardown_request
 def teardown_request(exception):
@@ -42,7 +48,7 @@ with app.app_context():
         print("\n=== KRAKEN SANDBOX API CREDENTIALS ===", flush=True)
         print(f"API KEY: {api_key}", flush=True)
         print(f"API SECRET: {api_secret}", flush=True)
-        print("=====================================\n", flush=True)
+        print("======================================\n", flush=True)
     else:
         # If no new credentials were generated, get existing ones
         cursor = get_db().cursor()
@@ -52,7 +58,7 @@ with app.app_context():
             print("\n=== KRAKEN SANDBOX API CREDENTIALS ===", flush=True)
             print(f"API KEY: {creds['api_key']}", flush=True)
             print(f"API SECRET: {creds['api_secret']}", flush=True)
-            print("=====================================\n", flush=True)
+            print("======================================\n", flush=True)
         else:
             print("ERROR: Could not retrieve API credentials", flush=True)
 

@@ -242,9 +242,6 @@ def add_order():
             # Check if balance is sufficient
             cost = Decimal(volume) * Decimal(price) if price else Decimal('0')
             
-            # Log balance information for debugging
-            logger.info(f"Buy order - Asset: {quote_asset}, Balance: {balance}, Cost: {cost}")
-            
             if cost > balance:
                 return jsonify({
                     'error': ['EOrder:Insufficient funds'],
@@ -307,9 +304,7 @@ def add_order():
             current_price = Decimal(utils.get_market_price(pair))
             limit_price = Decimal(price)
             price_difference_pct = abs((limit_price - current_price) / current_price * 100)
-            
-            logger.info(f"Limit order - Current price: {current_price}, Limit price: {limit_price}, Difference: {price_difference_pct}%")
-            
+
             # Execute if within 5% of market price
             if price_difference_pct <= 5:
                 execute_order = True
@@ -667,9 +662,7 @@ def query_trades():
                         'fee': fee,
                         'vol': volume
                     }
-                    
-                    logger.info(f"Created dummy trade {trade_id} for order {order_id}")
-        
+                     
         return jsonify({
             'error': [],
             'result': result
@@ -815,7 +808,6 @@ def cancel_order():
         )
         
         db.commit()
-        logger.info(f"Order successfully canceled - txid: {txid}")
         
         return jsonify({
             'error': [],

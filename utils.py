@@ -5,8 +5,35 @@ import json
 import requests
 import logging
 from decimal import Decimal
+import pprint
+from flask import request
 
 logger = logging.getLogger(__name__)
+
+def log_request_info():
+    """Log details of every request to the API"""
+    # Build request information dictionary
+    request_info = {
+        'url': request.url,
+        'method': request.method,
+        'endpoint': request.endpoint,
+        'path': request.path,
+    }
+    
+    # Add query parameters for GET requests
+    if request.args:
+        request_info['query_params'] = dict(request.args)
+    
+    # Add form data or JSON body for POST requests
+    if request.method == 'POST':
+        if request.is_json:
+            request_info['json_body'] = request.json
+        elif request.form:
+            request_info['form_data'] = dict(request.form)
+    
+    # Pretty print the request info
+    pretty_request = pprint.pformat(request_info, indent=2)
+    logger.info(f"Received API request:\n{pretty_request}")
 
 def current_timestamp():
     """Return current timestamp in seconds"""
