@@ -70,7 +70,8 @@ Umm, fuck that.
 - `/0/private/QueryTrades` - Get detailed information about specific trades
 - `/0/private/TradesHistory` - Get trade history
 - `/0/private/CancelOrder` - Cancel an open order
-- `/0/private/EditOrder` - Amend an existing order
+- `/0/private/EditOrder` - Edit an existing order by canceling it and creating a new one
+- `/0/private/AmendOrder` - Amend an order in-place without losing queue position
 
 ## Supported Trading Pairs
 

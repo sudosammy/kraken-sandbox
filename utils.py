@@ -18,6 +18,19 @@ def log_request_info():
     logger.info(f"Endpoint: {request.endpoint}")
     logger.info(f"Path: {request.path}")
     
+    # Log API key information
+    api_key = request.headers.get('API-Key', '')
+    api_sign = request.headers.get('API-Sign', '')
+    
+    has_api_key = bool(api_key)
+    has_api_sign = bool(api_sign)
+    
+    # Log first 8 characters of API key and signature if available
+    key_preview = api_key[:8] if has_api_key else 'None'
+    sign_preview = api_sign[:8] if has_api_sign else 'None'
+    
+    logger.info(f"API Keys included: {has_api_key and has_api_sign}, Key: {key_preview}, Sign: {sign_preview}")
+    
     # Add query parameters for GET requests
     if request.args:
         logger.info("Query Parameters:")
@@ -136,7 +149,19 @@ def get_market_price(pair):
                 return str(random.uniform(100, 50000))
 
 def calculate_fee(volume, price, fee_percentage=0.26):
-    """Calculate the fee for a trade"""
+    """Calculate the fee for a trade
+    
+    Calculate the fee based on the standard Kraken fee structure.
+    Default fee is 0.26% for taker and 0.16% for maker.
+    
+    Args:
+        volume: Trade volume in base currency
+        price: Trade price
+        fee_percentage: Custom fee percentage (defaults to 0.26% taker fee)
+        
+    Returns:
+        Fee amount as a string with 8 decimal precision
+    """
     volume = Decimal(volume)
     price = Decimal(price)
     fee_percentage = Decimal(fee_percentage)
@@ -154,6 +179,13 @@ def calculate_cost(volume, price):
     cost = volume * price
     
     return str(cost.quantize(Decimal('0.00000001')))
+
+def generate_amend_id():
+    """Generate a random amend ID in Kraken format (e.g., TEZA4R-DSDGT-IJBOJK)"""
+    parts = []
+    for _ in range(3):
+        parts.append(''.join(random.choices(string.ascii_uppercase, k=6)))
+    return '-'.join(parts)
 
 def get_kraken_server_time():
     """Get the current Kraken server time"""

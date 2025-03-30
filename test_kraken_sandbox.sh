@@ -278,6 +278,33 @@ else
     edit_order_id=""
 fi
 
+# Place a third far-from-market order that will remain open for amending
+echo -e "\n${YELLOW}Testing Place Far-from-Market Sell Limit Order (for amending)${NC}"
+nonce=$(date +%s000)
+post_data="nonce=${nonce}&pair=${TEST_PAIR}&type=sell&ordertype=limit&volume=0.003&price=${far_from_market_sell_price}&userref=12345"
+amend_order_response=$(curl -s -X POST "${BASE_URL}/0/private/AddOrder" \
+    -H "API-Key: ${API_KEY}" \
+    -H "API-Sign: $(echo -n "/0/private/AddOrder${post_data}" | openssl dgst -sha512 -hmac "${API_SECRET}" -binary | base64)" \
+    -d "${post_data}")
+
+# Print the full response for debugging
+echo "Order creation response: $amend_order_response"
+
+# Extract order ID for amending - try different methods to ensure we get it
+if echo "$amend_order_response" | grep -q '"error":\[\]'; then
+    # First try the standard format with txid
+    amend_order_id=$(echo "$amend_order_response" | grep -o '"txid":\[.*\]' | sed 's/.*\["//;s/"\].*//')
+    # If that fails, try another approach
+    if [ -z "$amend_order_id" ]; then
+        amend_order_id=$(echo "$amend_order_response" | grep -o '"txid":\[[^]]*\]' | grep -o '"[^"]*"' | tr -d '"')
+    fi
+    echo "Created order for amending with ID: $amend_order_id"
+else
+    echo -e "${RED}Failed to create order for amending${NC}"
+    echo "$amend_order_response"
+    amend_order_id=""
+fi
+
 # If we couldn't get the edit_order_id from the response, try to get it from the OpenOrders response
 if [ -z "$edit_order_id" ] && echo "$open_orders_response" | grep -q '"open":'; then
     # Get the first order that's not the cancel_order_id
@@ -336,15 +363,15 @@ fi
 # Verify the order was cancelled
 test_private_endpoint "ClosedOrders" "" "Verify Closed Orders After Cancellation"
 
-# Edit the second order
-echo -e "\n${YELLOW}Testing Edit Order${NC}"
+# Edit the second order using the EditOrder endpoint - creates a new order
+echo -e "\n${YELLOW}Testing Edit Order (cancels original and creates new)${NC}"
 if [ -n "$edit_order_id" ]; then
     echo "Editing order ID: $edit_order_id"
     # Calculate a new price higher than the original or use a simple increment if awk fails
     new_price=$(awk "BEGIN {print $far_from_market_sell_price * 1.1}" 2>/dev/null || echo "$far_from_market_sell_price")
     
     nonce=$(date +%s000)
-    post_data="nonce=${nonce}&txid=${edit_order_id}&price=${new_price}&volume=0.0015"
+    post_data="nonce=${nonce}&txid=${edit_order_id}&pair=${TEST_PAIR}&price=${new_price}&volume=0.0015"
     edit_response=$(curl -s -X POST "${BASE_URL}/0/private/EditOrder" \
         -H "API-Key: ${API_KEY}" \
         -H "API-Sign: $(echo -n "/0/private/EditOrder${post_data}" | openssl dgst -sha512 -hmac "${API_SECRET}" -binary | base64)" \
@@ -354,6 +381,13 @@ if [ -n "$edit_order_id" ]; then
     
     if echo "$edit_response" | grep -q '"error":\[\]'; then
         echo -e "${GREEN}✓ Success${NC}"
+        # Extract new order ID if possible
+        new_order_id=$(echo "$edit_response" | grep -o '"txid":"[^"]*"' | cut -d'"' -f4)
+        if [ -n "$new_order_id" ]; then
+            echo "New order ID after edit: $new_order_id"
+        else
+            echo "Original order was edited, but couldn't extract new ID"
+        fi
     else
         echo -e "${RED}✗ Failed${NC}"
         echo "$edit_response" | jq 2>/dev/null || echo "$edit_response"
@@ -362,8 +396,62 @@ else
     echo -e "${RED}No order ID found to edit${NC}"
 fi
 
-# Verify the order was edited
+# Verify the order was edited (original canceled, new created)
 test_private_endpoint "OpenOrders" "" "Verify Open Orders After Edit"
+test_private_endpoint "ClosedOrders" "" "Verify Closed Orders After Edit"
+
+# Test the AmendOrder endpoint - modifies existing order in-place
+echo -e "\n${YELLOW}Testing Amend Order (modifies in-place)${NC}"
+if [ -n "$amend_order_id" ]; then
+    echo "Amending order ID: $amend_order_id"
+    # Calculate a different price or volume for amending
+    new_volume="0.0025"
+    
+    nonce=$(date +%s000)
+    post_data="nonce=${nonce}&txid=${amend_order_id}&order_qty=${new_volume}"
+    amend_response=$(curl -s -X POST "${BASE_URL}/0/private/AmendOrder" \
+        -H "API-Key: ${API_KEY}" \
+        -H "API-Sign: $(echo -n "/0/private/AmendOrder${post_data}" | openssl dgst -sha512 -hmac "${API_SECRET}" -binary | base64)" \
+        -d "${post_data}")
+    
+    echo "Amend response: $amend_response"
+    
+    if echo "$amend_response" | grep -q '"error":\[\]'; then
+        echo -e "${GREEN}✓ Success${NC}"
+        # Extract amend_id if possible
+        amend_id=$(echo "$amend_response" | grep -o '"amend_id":"[^"]*"' | cut -d'"' -f4)
+        if [ -n "$amend_id" ]; then
+            echo "Amend transaction ID: $amend_id"
+        fi
+    else
+        echo -e "${RED}✗ Failed${NC}"
+        echo "$amend_response" | jq 2>/dev/null || echo "$amend_response"
+    fi
+    
+    # Test AmendOrder with client order ID (userref)
+    echo -e "\n${YELLOW}Testing Amend Order using client order ID${NC}"
+    nonce=$(date +%s000)
+    new_limit_price=$(awk "BEGIN {print $far_from_market_sell_price * 1.05}" 2>/dev/null || echo "$far_from_market_sell_price")
+    post_data="nonce=${nonce}&cl_ord_id=12345&limit_price=${new_limit_price}"
+    amend_cl_response=$(curl -s -X POST "${BASE_URL}/0/private/AmendOrder" \
+        -H "API-Key: ${API_KEY}" \
+        -H "API-Sign: $(echo -n "/0/private/AmendOrder${post_data}" | openssl dgst -sha512 -hmac "${API_SECRET}" -binary | base64)" \
+        -d "${post_data}")
+    
+    echo "Amend by client ID response: $amend_cl_response"
+    
+    if echo "$amend_cl_response" | grep -q '"error":\[\]'; then
+        echo -e "${GREEN}✓ Success${NC}"
+    else
+        echo -e "${RED}✗ Failed${NC}"
+        echo "$amend_cl_response" | jq 2>/dev/null || echo "$amend_cl_response"
+    fi
+else
+    echo -e "${RED}No order ID found to amend${NC}"
+fi
+
+# Verify the order was amended in-place
+test_private_endpoint "OpenOrders" "" "Verify Open Orders After Amend"
 
 # Test query trades and trades history
 test_private_endpoint "TradesHistory" "" "Trades History"

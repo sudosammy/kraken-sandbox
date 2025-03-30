@@ -118,27 +118,33 @@ def open_orders():
             if row['user_ref']:
                 order_data['userref'] = row['user_ref']
             
-            # Add trade information if requested
-            if trades and float(row['executed_volume']) > 0:
+            # Calculate fees and cost for partially executed orders
+            if float(row['executed_volume']) > 0:
                 # Get trade details for this order
                 cursor.execute(
-                    '''SELECT trade_id, price, cost, fee, volume, time 
-                    FROM trades WHERE api_key = ? AND order_id = ?''',
+                    '''SELECT SUM(cost) as total_cost, SUM(fee) as total_fee, 
+                    AVG(price) as avg_price FROM trades 
+                    WHERE api_key = ? AND order_id = ?''',
                     (api_key, row['order_id'])
                 )
-                trade_rows = cursor.fetchall()
+                trade_summary = cursor.fetchone()
                 
-                if trade_rows:
-                    trade_data = {}
-                    for trade_row in trade_rows:
-                        trade_data[trade_row['trade_id']] = {
-                            'price': trade_row['price'],
-                            'cost': trade_row['cost'],
-                            'fee': trade_row['fee'],
-                            'vol': trade_row['volume'],
-                            'time': trade_row['time']
-                        }
-                    order_data['trades'] = trade_data
+                if trade_summary:
+                    order_data['cost'] = str(trade_summary['total_cost'] or '0')
+                    order_data['fee'] = str(trade_summary['total_fee'] or '0')
+                    order_data['price'] = str(trade_summary['avg_price'] or '0')
+                
+                # Add trade information if requested
+                if trades:
+                    cursor.execute(
+                        '''SELECT trade_id FROM trades 
+                        WHERE api_key = ? AND order_id = ?''',
+                        (api_key, row['order_id'])
+                    )
+                    trade_rows = cursor.fetchall()
+                    
+                    if trade_rows:
+                        order_data['trades'] = [row['trade_id'] for row in trade_rows]
             
             result['open'][row['order_id']] = order_data
         
@@ -344,7 +350,7 @@ def add_order():
                 api_key, trade_id, order_id, pair, type, exec_price, cost, fee, volume, timestamp
             ))
             
-            # Update balances
+            # Update balances (subtract fee from the received amount)
             if type == 'buy':
                 # Deduct quote currency (e.g., USD) and add base currency (e.g., BTC)
                 quote_asset = pair_info['quote']
@@ -371,13 +377,16 @@ def add_order():
                 quote_asset = pair_info['quote']
                 base_asset = pair_info['base']
                 
-                # Update or insert quote asset balance
+                # Update or insert quote asset balance (subtract fee)
+                fee_decimal = Decimal(fee)
+                net_proceeds = Decimal(cost) - fee_decimal
+                
                 cursor.execute('''
                 INSERT INTO account_balances (api_key, asset, balance) 
                 VALUES (?, ?, ?) 
                 ON CONFLICT(api_key, asset) 
                 DO UPDATE SET balance = CAST(balance AS DECIMAL) + ?
-                ''', (api_key, quote_asset, str(cost), str(cost)))
+                ''', (api_key, quote_asset, str(net_proceeds), str(net_proceeds)))
                 
                 # Update or insert base asset balance
                 cursor.execute('''
@@ -506,23 +515,14 @@ def closed_orders():
                 # Add trade details if requested
                 if trades:
                     cursor.execute(
-                        '''SELECT trade_id, price, cost, fee, volume, time 
-                        FROM trades WHERE api_key = ? AND order_id = ?''',
+                        '''SELECT trade_id FROM trades 
+                        WHERE api_key = ? AND order_id = ?''',
                         (api_key, row['order_id'])
                     )
                     trade_rows = cursor.fetchall()
                     
                     if trade_rows:
-                        trade_data = {}
-                        for trade_row in trade_rows:
-                            trade_data[trade_row['trade_id']] = {
-                                'price': trade_row['price'],
-                                'cost': trade_row['cost'],
-                                'fee': trade_row['fee'],
-                                'vol': trade_row['volume'],
-                                'time': trade_row['time']
-                            }
-                        order_data['trades'] = trade_data
+                        order_data['trades'] = [row['trade_id'] for row in trade_rows]
             
             result['closed'][row['order_id']] = order_data
         
@@ -587,16 +587,26 @@ def query_trades():
             rows = cursor.fetchall()
             
             for row in rows:
+                # Get order type for this trade
+                cursor.execute(
+                    'SELECT order_type FROM orders WHERE order_id = ?',
+                    (row['order_id'],)
+                )
+                order_row = cursor.fetchone()
+                ordertype = order_row['order_type'] if order_row else 'market'
+                
                 trade_data = {
                     'ordertxid': row['order_id'],
                     'pair': row['pair'],
                     'time': row['time'],
                     'type': row['type'],
-                    'ordertype': 'market',  # We assume market orders for simplicity
+                    'ordertype': ordertype,
                     'price': row['price'],
                     'cost': row['cost'],
                     'fee': row['fee'],
-                    'vol': row['volume']
+                    'vol': row['volume'],
+                    'margin': False,  # Default to not margin trade
+                    'misc': ''        # No misc info by default
                 }
                 
                 result[row['trade_id']] = trade_data
@@ -614,16 +624,26 @@ def query_trades():
             rows = cursor.fetchall()
             
             for row in rows:
+                # Get order type for this trade
+                cursor.execute(
+                    'SELECT order_type FROM orders WHERE order_id = ?',
+                    (row['order_id'],)
+                )
+                order_row = cursor.fetchone()
+                ordertype = order_row['order_type'] if order_row else 'market'
+                
                 trade_data = {
                     'ordertxid': row['order_id'],
                     'pair': row['pair'],
                     'time': row['time'],
                     'type': row['type'],
-                    'ordertype': 'market',  # We assume market orders for simplicity
+                    'ordertype': ordertype,
                     'price': row['price'],
                     'cost': row['cost'],
                     'fee': row['fee'],
-                    'vol': row['volume']
+                    'vol': row['volume'],
+                    'margin': False,
+                    'misc': ''
                 }
                 
                 result[row['trade_id']] = trade_data
@@ -669,7 +689,9 @@ def query_trades():
                         'price': price,
                         'cost': cost,
                         'fee': fee,
-                        'vol': volume
+                        'vol': volume,
+                        'margin': False,
+                        'misc': ''
                     }
                      
         return jsonify({
@@ -731,15 +753,26 @@ def trades_history():
         result = {'trades': {}}
         
         for row in rows:
+            # Get the order type for this trade
+            cursor.execute(
+                'SELECT order_type FROM orders WHERE order_id = ?',
+                (row['order_id'],)
+            )
+            order_row = cursor.fetchone()
+            ordertype = order_row['order_type'] if order_row else 'market'
+            
             trade_data = {
                 'ordertxid': row['order_id'],
                 'pair': row['pair'],
                 'time': row['time'],
                 'type': row['type'],
+                'ordertype': ordertype,
                 'price': row['price'],
                 'cost': row['cost'],
                 'fee': row['fee'],
-                'vol': row['volume']
+                'vol': row['volume'],
+                'margin': False,  # Default to not margin trade
+                'misc': ''        # No misc info by default
             }
             
             result['trades'][row['trade_id']] = trade_data
@@ -834,7 +867,7 @@ def cancel_order():
 
 @bp.route('/EditOrder', methods=['POST'])
 def edit_order():
-    """Amend an existing order
+    """Amend an existing order by canceling it and creating a new one
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/edit-order
@@ -843,20 +876,34 @@ def edit_order():
     
     # Required parameters
     txid = request.form.get('txid')
+    userref = request.form.get('userref')
+    pair = request.form.get('pair')
     
-    if not txid:
-        logger.error("Error in EditOrder endpoint: Missing required parameter 'txid'")
+    if not txid and not userref:
+        logger.error("Error in EditOrder endpoint: Missing required parameter 'txid' or 'userref'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments'],
             'result': {}
         }), 400
     
+    if not pair:
+        logger.error("Error in EditOrder endpoint: Missing required parameter 'pair'")
+        return jsonify({
+            'error': ['EGeneral:Invalid arguments:pair'],
+            'result': {}
+        }), 400
+    
     # Optional parameters
     volume = request.form.get('volume')
+    displayvol = request.form.get('displayvol')
     price = request.form.get('price')
     price2 = request.form.get('price2')
+    oflags = request.form.get('oflags', '')
+    deadline = request.form.get('deadline')
+    cancel_response = request.form.get('cancel_response', 'false').lower() == 'true'
+    validate = request.form.get('validate', 'false').lower() == 'true'
     
-    if not volume and not price and not price2:
+    if not volume and not price and not price2 and not displayvol:
         logger.error("Error in EditOrder endpoint: No parameters to edit")
         return jsonify({
             'error': ['EGeneral:No parameters to edit'],
@@ -867,71 +914,126 @@ def edit_order():
     cursor = db.cursor()
     
     try:
-        # Check if the order exists and is open
-        cursor.execute(
-            'SELECT order_id, status, order_type, pair FROM orders WHERE api_key = ? AND order_id = ?',
-            (api_key, txid)
-        )
+        # Find the original order
+        if txid:
+            cursor.execute(
+                '''SELECT order_id, status, type, order_type, pair, price, price2, volume, 
+                executed_volume, opened_time, user_ref FROM orders 
+                WHERE api_key = ? AND order_id = ?''',
+                (api_key, txid)
+            )
+        else:  # userref
+            cursor.execute(
+                '''SELECT order_id, status, type, order_type, pair, price, price2, volume, 
+                executed_volume, opened_time, user_ref FROM orders 
+                WHERE api_key = ? AND user_ref = ?''',
+                (api_key, userref)
+            )
         
-        order_row = cursor.fetchone()
+        original_order = cursor.fetchone()
         
-        if not order_row:
-            logger.error(f"Error in EditOrder endpoint: Order not found - API Key: {api_key}, txid: {txid}")
+        if not original_order:
+            logger.error(f"Error in EditOrder endpoint: Order not found - API Key: {api_key}, txid: {txid}, userref: {userref}")
             return jsonify({
                 'error': ['EOrder:Unknown order'],
                 'result': {}
             }), 400
         
-        if order_row['status'] != 'open':
-            logger.error(f"Error in EditOrder endpoint: Cannot edit closed order with status: {order_row['status']}")
+        if original_order['status'] != 'open':
+            logger.error(f"Error in EditOrder endpoint: Cannot edit closed order with status: {original_order['status']}")
             return jsonify({
                 'error': ['EOrder:Cannot edit closed order'],
                 'result': {}
             }), 400
         
-        # Market orders cannot be edited
-        if order_row['order_type'] == 'market':
+        if original_order['order_type'] == 'market':
             logger.error("Error in EditOrder endpoint: Cannot edit market order")
             return jsonify({
                 'error': ['EOrder:Cannot edit market order'],
                 'result': {}
             }), 400
         
-        # Update order details
-        update_fields = []
-        update_values = []
+        # Check if order has conditional closes or stops/takes attached
+        # (For this sandbox implementation, we'll assume no conditional closes)
         
-        if volume:
-            update_fields.append('volume = ?')
-            update_values.append(volume)
-            
-        if price:
-            update_fields.append('price = ?')
-            update_values.append(price)
-            
-        if price2:
-            update_fields.append('price2 = ?')
-            update_values.append(price2)
+        # Check if executed volume is greater than new volume
+        if volume and float(volume) < float(original_order['executed_volume']):
+            logger.error(f"Error in EditOrder endpoint: New volume {volume} is less than executed volume {original_order['executed_volume']}")
+            return jsonify({
+                'error': ['EOrder:Invalid volume:New volume must be greater than executed volume'],
+                'result': {}
+            }), 400
         
-        if update_fields:
-            update_sql = f'UPDATE orders SET {", ".join(update_fields)} WHERE order_id = ?'
-            cursor.execute(update_sql, update_values + [txid])
-            
-            db.commit()
+        # Store original order data
+        original_txid = original_order['order_id']
+        order_type = original_order['order_type']
+        type = original_order['type']
+        original_userref = original_order['user_ref']
         
-        # Return the updated order description
+        # If we're only validating, return success without making changes
+        if validate:
+            return jsonify({
+                'error': [],
+                'result': {
+                    'descr': {
+                        'order': f"{type} {volume or original_order['volume']} {pair} @ {price or original_order['price'] or 'market'} {order_type}"
+                    }
+                }
+            })
+        
+        # Step 1: Cancel the original order
+        timestamp = utils.current_timestamp()
         cursor.execute(
-            'SELECT type, volume, pair, price, price2, order_type FROM orders WHERE order_id = ?',
-            (txid,)
+            'UPDATE orders SET status = ?, closed_time = ? WHERE order_id = ?',
+            ('canceled', timestamp, original_txid)
         )
-        updated_order = cursor.fetchone()
         
+        # Step 2: Create a new order with updated parameters
+        new_txid = utils.generate_order_id()
+        
+        # Use original values for any parameters not provided
+        new_volume = volume or original_order['volume']
+        new_price = price or original_order['price']
+        new_price2 = price2 or original_order['price2']
+        new_userref = userref or original_userref
+        
+        # Prepare data field for special options
+        data = {}
+        if displayvol:
+            data['display_qty'] = displayvol
+        
+        # Insert the new order
+        cursor.execute('''
+        INSERT INTO orders 
+        (api_key, order_id, pair, type, order_type, price, price2, volume, 
+         executed_volume, status, opened_time, user_ref, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            api_key, new_txid, pair, type, order_type, new_price, new_price2, 
+            new_volume, '0', 'open', timestamp, new_userref, json.dumps(data)
+        ))
+        
+        db.commit()
+        
+        # Return success response
         result = {
-            'txid': [txid],
+            'status': 'ok',
+            'txid': new_txid,
+            'originaltxid': original_txid,
+            'volume': new_volume,
+            'price': new_price,
+            'price2': new_price2,
+            'orders_cancelled': 1,
             'descr': {
-                'order': f"{updated_order['type']} {updated_order['volume']} {updated_order['pair']} @ {updated_order['price'] if updated_order['price'] else 'market'} {updated_order['order_type']}"
+                'order': f"{type} {new_volume} {pair} @ {order_type} {new_price or 'market'}"
             }
         }
+        
+        if original_userref:
+            result['olduserref'] = original_userref
+            
+        if new_userref:
+            result['newuserref'] = new_userref
         
         return jsonify({
             'error': [],
@@ -940,6 +1042,149 @@ def edit_order():
         
     except Exception as e:
         logger.error(f"Error in EditOrder endpoint: {str(e)}")
+        return jsonify({
+            'error': ['EGeneral:Internal error'],
+            'result': {}
+        }), 500
+
+@bp.route('/AmendOrder', methods=['POST'])
+def amend_order():
+    """Amend an existing order in-place
+    
+    Endpoint implementation based on:
+    https://docs.kraken.com/api/docs/rest-api/amend-order
+    """
+    api_key = request.headers.get('API-Key')
+    
+    # Required parameters - either txid or cl_ord_id is required
+    txid = request.form.get('txid')
+    cl_ord_id = request.form.get('cl_ord_id')
+    
+    if not txid and not cl_ord_id:
+        logger.error("Error in AmendOrder endpoint: Missing required parameter 'txid' or 'cl_ord_id'")
+        return jsonify({
+            'error': ['EGeneral:Invalid arguments'],
+            'result': {}
+        }), 400
+    
+    # Optional parameters
+    order_qty = request.form.get('order_qty')
+    display_qty = request.form.get('display_qty')
+    limit_price = request.form.get('limit_price')
+    trigger_price = request.form.get('trigger_price')
+    post_only = request.form.get('post_only', 'false').lower() == 'true'
+    deadline = request.form.get('deadline')
+    
+    if not order_qty and not display_qty and not limit_price and not trigger_price:
+        logger.error("Error in AmendOrder endpoint: No parameters to amend")
+        return jsonify({
+            'error': ['EGeneral:No parameters to amend'],
+            'result': {}
+        }), 400
+    
+    db = g.db
+    cursor = db.cursor()
+    
+    try:
+        # Build the query based on parameters to find the order
+        if txid:
+            cursor.execute(
+                'SELECT order_id, status, order_type, pair, executed_volume FROM orders WHERE api_key = ? AND order_id = ?',
+                (api_key, txid)
+            )
+        else:  # cl_ord_id
+            cursor.execute(
+                'SELECT order_id, status, order_type, pair, executed_volume FROM orders WHERE api_key = ? AND user_ref = ?',
+                (api_key, cl_ord_id)
+            )
+        
+        order_row = cursor.fetchone()
+        
+        if not order_row:
+            logger.error(f"Error in AmendOrder endpoint: Order not found - API Key: {api_key}, txid: {txid}, cl_ord_id: {cl_ord_id}")
+            return jsonify({
+                'error': ['EOrder:Unknown order'],
+                'result': {}
+            }), 400
+        
+        if order_row['status'] != 'open':
+            logger.error(f"Error in AmendOrder endpoint: Cannot amend closed order with status: {order_row['status']}")
+            return jsonify({
+                'error': ['EOrder:Cannot amend closed order'],
+                'result': {}
+            }), 400
+        
+        # Check if order type supports amendments
+        if order_row['order_type'] == 'market':
+            logger.error("Error in AmendOrder endpoint: Cannot amend market order")
+            return jsonify({
+                'error': ['EOrder:Cannot amend market order'],
+                'result': {}
+            }), 400
+        
+        # Check if the new quantity is less than executed quantity
+        if order_qty and float(order_qty) < float(order_row['executed_volume']):
+            logger.error(f"Error in AmendOrder endpoint: New quantity {order_qty} is less than executed quantity {order_row['executed_volume']}")
+            return jsonify({
+                'error': ['EOrder:Invalid order_qty:New quantity must be greater than executed quantity'],
+                'result': {}
+            }), 400
+        
+        # Validate display_qty for iceberg orders
+        if display_qty and order_qty:
+            if float(display_qty) < float(order_qty) / 15:
+                logger.error(f"Error in AmendOrder endpoint: display_qty {display_qty} must be at least 1/15 of order_qty {order_qty}")
+                return jsonify({
+                    'error': ['EOrder:Invalid display_qty:Display quantity must be at least 1/15 of order quantity'],
+                    'result': {}
+                }), 400
+        
+        # Update order details
+        update_fields = []
+        update_values = []
+        
+        if order_qty:
+            update_fields.append('volume = ?')
+            update_values.append(order_qty)
+            
+        if limit_price:
+            update_fields.append('price = ?')
+            update_values.append(limit_price)
+            
+        if trigger_price:
+            update_fields.append('price2 = ?')
+            update_values.append(trigger_price)
+        
+        # For display_qty, we'll store it in the data JSON field
+        if display_qty:
+            cursor.execute('SELECT data FROM orders WHERE order_id = ?', (order_row['order_id'],))
+            data_row = cursor.fetchone()
+            data = json.loads(data_row['data'] or '{}')
+            data['display_qty'] = display_qty
+            update_fields.append('data = ?')
+            update_values.append(json.dumps(data))
+        
+        if update_fields:
+            update_sql = f'UPDATE orders SET {", ".join(update_fields)} WHERE order_id = ?'
+            cursor.execute(update_sql, update_values + [order_row['order_id']])
+            
+            db.commit()
+        
+        # Generate amend_id
+        amend_id = utils.generate_amend_id()
+        
+        # Return success response
+        result = {
+            'amend_id': amend_id
+        }
+        
+        return jsonify({
+            'error': [],
+            'result': result
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in AmendOrder endpoint: {str(e)}")
         return jsonify({
             'error': ['EGeneral:Internal error'],
             'result': {}
