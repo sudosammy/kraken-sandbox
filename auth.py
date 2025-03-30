@@ -11,6 +11,7 @@ import random
 import string
 import logging
 from flask import request, g, current_app
+from database import seed_account_balances
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def generate_api_credentials():
     # Generate new credentials
     api_key = generate_api_key()
     api_secret = generate_api_secret()
-    
+
     # Store in database
     cursor.execute(
         'INSERT INTO api_credentials (api_key, api_secret) VALUES (?, ?)',
@@ -46,7 +47,10 @@ def generate_api_credentials():
     )
     db.commit()
     
-    logger.info("Generated new API credentials")
+    # Seed account balances with the new API key
+    logger.info("Now seeding account balance")
+    seed_account_balances(db, api_key)
+    
     return api_key, api_secret
 
 def get_api_credentials():

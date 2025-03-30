@@ -128,14 +128,7 @@ def init_db():
     if cursor.fetchone()[0] == 0:
         seed_assets(db)
     
-    # Seed initial balances if the table is empty
-    cursor.execute('SELECT COUNT(*) FROM account_balances')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute('SELECT api_key FROM api_credentials LIMIT 1')
-        result = cursor.fetchone()
-        if result:
-            api_key = result[0]
-            seed_account_balances(db, api_key)
+    # Account balances are seeded in auth.py when API credentials are generated
     
     db.commit()
 
@@ -274,7 +267,7 @@ def seed_asset_pairs(db):
 def seed_account_balances(db, api_key):
     balances = [
         ('XXBT', '100.0'),
-        ('XETH', '1000.0'),
+        ('XETH', '100.0'),
         ('ZUSD', '1000000.0'),
         ('ZAUD', '1000000.0')
     ]
@@ -286,7 +279,19 @@ def seed_account_balances(db, api_key):
         VALUES (?, ?, ?)
         ''', (api_key, asset, balance))
     
-    logger.info("Seeded account balances with ample funds")
+    # Commit changes to ensure they're saved to disk
+    db.commit()
+    
+    # Verify balances were inserted
+    cursor = db.cursor()
+    cursor.execute('SELECT COUNT(*) FROM account_balances WHERE api_key = ?', (api_key,))
+    count = cursor.fetchone()[0]
+    logger.info(f"Seeded account balances with ample funds - verified {count} balance records")
+    
+    if count != len(balances):
+        logger.error(f"Failed to seed all account balances! Expected {len(balances)}, but got {count}")
+    
+    return count > 0
 
 def seed_assets(db):
     assets = [

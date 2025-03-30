@@ -35,10 +35,10 @@ def update_account_balances():
             
             # Set high balances for all assets
             balances = [
-                ('XXBT', '1000.0'),      # 1,000 BTC
-                ('XETH', '10000.0'),     # 10,000 ETH
-                ('ZUSD', '100000000.0'), # 100 million USD
-                ('ZAUD', '100000000.0')  # 100 million AUD
+                ('XXBT', '10.0'),      # 10 BTC
+                ('XETH', '100.0'),     # 100 ETH
+                ('ZUSD', '1000000.0'), # 1 million USD
+                ('ZAUD', '1000000.0')  # 1 million AUD
             ]
             
             # Delete existing balances to avoid conflicts
