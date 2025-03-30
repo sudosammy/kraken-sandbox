@@ -12,28 +12,30 @@ logger = logging.getLogger(__name__)
 
 def log_request_info():
     """Log details of every request to the API"""
-    # Build request information dictionary
-    request_info = {
-        'url': request.url,
-        'method': request.method,
-        'endpoint': request.endpoint,
-        'path': request.path,
-    }
+    logger.info(f"=== API REQUEST ===")
+    logger.info(f"URL: {request.url}")
+    logger.info(f"Method: {request.method}")
+    logger.info(f"Endpoint: {request.endpoint}")
+    logger.info(f"Path: {request.path}")
     
     # Add query parameters for GET requests
     if request.args:
-        request_info['query_params'] = dict(request.args)
+        logger.info("Query Parameters:")
+        for key, value in request.args.items():
+            logger.info(f"  {key}: {value}")
     
     # Add form data or JSON body for POST requests
     if request.method == 'POST':
         if request.is_json:
-            request_info['json_body'] = request.json
+            logger.info("JSON Body:")
+            for key, value in request.json.items():
+                logger.info(f"  {key}: {value}")
         elif request.form:
-            request_info['form_data'] = dict(request.form)
+            logger.info("Form Data:")
+            for key, value in request.form.items():
+                logger.info(f"  {key}: {value}")
     
-    # Pretty print the request info
-    pretty_request = pprint.pformat(request_info, indent=2)
-    logger.info(f"Received API request:\n{pretty_request}")
+    logger.info(f"==================")
 
 def current_timestamp():
     """Return current timestamp in seconds"""

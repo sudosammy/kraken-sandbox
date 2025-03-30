@@ -106,6 +106,16 @@ def create_kraken_signature(api_path, data, secret):
     encoded = (str(data['nonce']) + postdata).encode()
     message = api_path.encode() + hashlib.sha256(encoded).digest()
     
-    mac = hmac.new(base64.b64decode(secret), message, hashlib.sha512)
-    sigdigest = base64.b64encode(mac.digest())
-    return sigdigest.decode() 
+    # Add padding if needed
+    if len(secret) % 4:
+        # Add required padding
+        padding = '=' * (4 - len(secret) % 4)
+        secret += padding
+    
+    try:
+        mac = hmac.new(base64.b64decode(secret), message, hashlib.sha512)
+        sigdigest = base64.b64encode(mac.digest())
+        return sigdigest.decode()
+    except Exception as e:
+        logger.error(f"Error creating signature: {str(e)}")
+        raise ValueError("Invalid API secret format") 

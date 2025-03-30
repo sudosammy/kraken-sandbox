@@ -217,6 +217,7 @@ def ohlc():
     since = params.get('since')
     
     if not pair:
+        logger.error("Error in OHLC endpoint: Missing required parameter 'pair'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments:pair'],
             'result': {}
@@ -348,6 +349,7 @@ def order_book():
     count = params.get('count', '100')
     
     if not pair:
+        logger.error("Error in Depth endpoint: Missing required parameter 'pair'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments:pair'],
             'result': {}
@@ -410,6 +412,7 @@ def trades():
     count = params.get('count', '1000')  # Not in official API but useful for limiting
     
     if not pair:
+        logger.error("Error in Trades endpoint: Missing required parameter 'pair'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments:pair'],
             'result': {}
@@ -494,6 +497,7 @@ def spread():
     since = params.get('since')
     
     if not pair:
+        logger.error("Error in Spread endpoint: Missing required parameter 'pair'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments:pair'],
             'result': {}

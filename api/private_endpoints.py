@@ -17,6 +17,7 @@ def before_request():
     """Verify API credentials before processing any private endpoint request"""
     is_valid, response = verify_api_credentials()
     if not is_valid:
+        logger.error(f"API authentication failed: {response.get('error', ['Unknown error'])}")
         return jsonify(response), 401
 
 @bp.route('/Balance', methods=['POST'])
@@ -175,6 +176,7 @@ def add_order():
     
     # Validate parameters
     if not pair or not type or not ordertype or not volume:
+        logger.error(f"Error in AddOrder endpoint: Missing required parameters - pair: {pair}, type: {type}, ordertype: {ordertype}, volume: {volume}")
         return jsonify({
             'error': ['EGeneral:Invalid arguments'],
             'result': {}
@@ -182,6 +184,7 @@ def add_order():
     
     # Validate order type
     if ordertype not in ['market', 'limit', 'stop-loss', 'take-profit', 'stop-loss-limit', 'take-profit-limit', 'settle-position']:
+        logger.error(f"Error in AddOrder endpoint: Invalid ordertype '{ordertype}'")
         return jsonify({
             'error': ['EGeneral:Invalid ordertype'],
             'result': {}
@@ -189,6 +192,7 @@ def add_order():
     
     # Validate order direction
     if type not in ['buy', 'sell']:
+        logger.error(f"Error in AddOrder endpoint: Invalid type '{type}'")
         return jsonify({
             'error': ['EGeneral:Invalid type'],
             'result': {}
@@ -196,6 +200,7 @@ def add_order():
     
     # Additional validation for limit orders
     if ordertype in ['limit', 'stop-loss-limit', 'take-profit-limit'] and not price:
+        logger.error(f"Error in AddOrder endpoint: Missing price for {ordertype} order")
         return jsonify({
             'error': ['EGeneral:Invalid arguments:price'],
             'result': {}
@@ -206,16 +211,17 @@ def add_order():
     
     try:
         # Verify pair exists
-        cursor.execute('SELECT pair_name FROM asset_pairs WHERE pair_name = ?', (pair,))
+        cursor.execute('SELECT pair_name FROM asset_pairs WHERE pair_name = ? OR altname = ?', (pair, pair))
         pair_row = cursor.fetchone()
         if not pair_row:
+            logger.error(f"Error in AddOrder endpoint: Invalid pair '{pair}'")
             return jsonify({
                 'error': ['EGeneral:Invalid arguments:pair'],
                 'result': {}
             }), 400
         
         # Verify sufficient balance for buy or sell
-        cursor.execute('SELECT pair_name, base, quote FROM asset_pairs WHERE pair_name = ?', (pair,))
+        cursor.execute('SELECT pair_name, base, quote FROM asset_pairs WHERE pair_name = ? OR altname = ?', (pair, pair))
         pair_info = cursor.fetchone()
         
         if type == 'buy':
@@ -243,6 +249,7 @@ def add_order():
             cost = Decimal(volume) * Decimal(price) if price else Decimal('0')
             
             if cost > balance:
+                logger.error(f"Error in AddOrder endpoint: Insufficient funds for buy order - cost: {cost}, balance: {balance}")
                 return jsonify({
                     'error': ['EOrder:Insufficient funds'],
                     'result': {}
@@ -269,6 +276,7 @@ def add_order():
             volume_dec = Decimal(volume)
             
             if volume_dec > balance:
+                logger.error(f"Error in AddOrder endpoint: Insufficient funds for sell order - volume: {volume_dec}, balance: {balance}")
                 return jsonify({
                     'error': ['EOrder:Insufficient funds'],
                     'result': {}
@@ -551,6 +559,7 @@ def query_trades():
     txid = request.form.get('txid')
     
     if not txid:
+        logger.error("Error in QueryTrades endpoint: Missing required parameter 'txid'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments'],
             'result': {}
@@ -768,7 +777,7 @@ def cancel_order():
     txid = request.form.get('txid')
     
     if not txid:
-        logger.info("Missing txid parameter")
+        logger.error("Error in CancelOrder endpoint: Missing required parameter 'txid'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments'],
             'result': {}
@@ -787,14 +796,14 @@ def cancel_order():
         order_row = cursor.fetchone()
         
         if not order_row:
-            logger.info(f"Order not found - API Key: {api_key}, txid: {txid}")
+            logger.error(f"Error in CancelOrder endpoint: Order not found - API Key: {api_key}, txid: {txid}")
             return jsonify({
                 'error': ['EOrder:Unknown order'],
                 'result': {}
             }), 400
         
         if order_row['status'] != 'open':
-            logger.info(f"Order not open - status: {order_row['status']}")
+            logger.error(f"Error in CancelOrder endpoint: Order not open - status: {order_row['status']}")
             return jsonify({
                 'error': ['EOrder:Cannot cancel closed order'],
                 'result': {}
@@ -836,6 +845,7 @@ def edit_order():
     txid = request.form.get('txid')
     
     if not txid:
+        logger.error("Error in EditOrder endpoint: Missing required parameter 'txid'")
         return jsonify({
             'error': ['EGeneral:Invalid arguments'],
             'result': {}
@@ -847,6 +857,7 @@ def edit_order():
     price2 = request.form.get('price2')
     
     if not volume and not price and not price2:
+        logger.error("Error in EditOrder endpoint: No parameters to edit")
         return jsonify({
             'error': ['EGeneral:No parameters to edit'],
             'result': {}
@@ -865,12 +876,14 @@ def edit_order():
         order_row = cursor.fetchone()
         
         if not order_row:
+            logger.error(f"Error in EditOrder endpoint: Order not found - API Key: {api_key}, txid: {txid}")
             return jsonify({
                 'error': ['EOrder:Unknown order'],
                 'result': {}
             }), 400
         
         if order_row['status'] != 'open':
+            logger.error(f"Error in EditOrder endpoint: Cannot edit closed order with status: {order_row['status']}")
             return jsonify({
                 'error': ['EOrder:Cannot edit closed order'],
                 'result': {}
@@ -878,6 +891,7 @@ def edit_order():
         
         # Market orders cannot be edited
         if order_row['order_type'] == 'market':
+            logger.error("Error in EditOrder endpoint: Cannot edit market order")
             return jsonify({
                 'error': ['EOrder:Cannot edit market order'],
                 'result': {}

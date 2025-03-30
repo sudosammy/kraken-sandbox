@@ -1,13 +1,53 @@
 # Kraken Sandbox API
 
-A local development environment that mimics the [Kraken Spot REST API](https://docs.kraken.com/api/docs/rest-api/add-order) for testing and development purposes.
+A local development environment that mimics the [Kraken Spot REST API](https://docs.kraken.com/api/docs/rest-api/add-order).
 
 ### Why?
-Kraken support regarding access to a Staging/UAT API:
-> We currently provide a UAT environment which is used for testing, however, this is only available for the Business Pro account and third party service developers. If you are interested in this and not a third party service developer, then please generate a business pro account with Kraken and after generating an account we can further move to create an UAT environment for you.
-> If you are a third party service developer, can you provide some details on which APIs and endpoints you will be using, details of the company, and the use case for the API.
+Kraken only provides a UAT environment to "Business Pro" accounts and "third party service developers" both of which require several hoops to create. Kraken support told me:
 
-Umm yeah, fuck that.
+>Our usual recommendation for testing is to use a real account and place real orders for very small amounts by adding small funds in the account.
+
+Umm, fuck that.
+
+## Getting Started Using Docker (Recommended)
+
+1. Clone this repository:
+   ```
+   git clone https://github.com/sudosammy/kraken-sandbox.git
+   cd kraken-sandbox
+   ```
+
+2. Create the docker network. This will expose the container at `kraken-sandbox:5555` to other containers on this network:
+   ```
+   docker network create kraken_network
+   ```
+
+3. Start the Docker container:
+   ```
+   docker compose up
+   ```
+
+4. The API will be available on the host at http://localhost:5555 and API credentials will be printed to the console and are available at http://localhost:5555/admin. If you started the server with `docker compose up -d` you can also find the credentials via `docker compose logs kraken-sandbox`
+
+## Manual Setup
+
+1. Clone this repository:
+   ```
+   git clone https://github.com/sudosammy/kraken-sandbox.git
+   cd kraken-sandbox
+   ```
+
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Start the API server:
+   ```
+   python app.py
+   ```
+
+4. The API will be available on the host at http://localhost:5555 and API credentials will be printed to the console & are available at http://localhost:5555/admin.
 
 ## Supported Endpoints
 
@@ -32,6 +72,15 @@ Umm yeah, fuck that.
 - `/0/private/CancelOrder` - Cancel an open order
 - `/0/private/EditOrder` - Amend an existing order
 
+## Supported Trading Pairs
+
+- BTC/USD (XXBTZUSD)
+- ETH/USD (XETHZUSD)
+- BTC/AUD (XXBTZAUD)
+- ETH/AUD (XETHZAUD)
+
+To add new trading pairs, update the `seed_asset_pairs` function in `database.py`.
+
 ## Order Execution Behavior
 
 The Kraken Sandbox API simulates realistic order execution behavior:
@@ -42,78 +91,13 @@ The Kraken Sandbox API simulates realistic order execution behavior:
   - Limit orders placed more than 5% away from the current market price remain open.
   - This behavior allows for testing both order execution and order management (cancellation, editing).
 
-The 5% threshold simulates a reasonable price range for immediate execution, while orders outside this range require price movements before execution.
-
-## Supported Trading Pairs
-
-- BTC/USD (XXBTZUSD)
-- ETH/USD (XETHZUSD)
-- BTC/AUD (XXBTZAUD)
-- ETH/AUD (XETHZAUD)
-
-### Adding New Pairs
-
-To add new trading pairs, update the `seed_asset_pairs` function in `database.py`.
-
-## Getting Started
-
-### Using Docker (Recommended)
-
-1. Clone this repository:
-   ```
-   git clone https://github.com/sudosammy/kraken-sandbox.git
-   cd kraken-sandbox
-   ```
-
-2. Create the docker network. This will expose the container at `kraken-sandbox:5555` to other containers on this network:
-   ```
-   docker network create kraken_network
-   ```
-
-3. Start the Docker container:
-   ```
-   docker compose up
-   ```
-
-4. The API will be available outside the container at http://localhost:5555 and API credentials will be printed to the console and are available at http://localhost:5555/admin. If you started the server with `docker compose up -d` you can also find the credentials via `docker compose logs kraken-sandbox`
-
-### Manual Setup
-
-1. Clone this repository:
-   ```
-   git clone https://github.com/sudosammy/kraken-sandbox.git
-   cd kraken-sandbox
-   ```
-
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-3. Start the API server:
-   ```
-   python app.py
-   ```
-
-4. The API will be available at http://localhost:5555 and API credentials will be printed to the console & are available at http://localhost:5555/admin.
-
-### Configuring Logging
-
-The API's logging level can be configured using the `LOG_LEVEL` environment variable. Supported levels are:
-
-- `DEBUG`: Detailed debug information
-- `INFO`: Confirmation that things are working as expected (default)
-- `WARNING`: Indication that something unexpected happened
-- `ERROR`: An error occurred but the application can continue
-- `CRITICAL`: A serious error that may prevent the application from continuing
-
-### Making API Requests
+## Making API Requests
 
 If you want to access the API from another container, ensure you have created the `kraken_network` network and specify it via `--network` or an `external: true` network configuration in the other container's `docker-compose.yml`. Then the sandbox API will be available at `http://kraken-sandbox:5555`.
 
 #### Public Endpoints
 
-Public endpoints can be accessed directly via GET requests:
+Public endpoints can be accessed directly via GET (or POST) requests:
 
 ```
 curl http://localhost:5555/0/public/Ticker?pair=XXBTZUSD
@@ -143,9 +127,7 @@ For testing purposes, the sandbox has simplified authentication - it only checks
 
 ## Testing the API
 
-A test script (`test_kraken_sandbox.sh`) is included to verify that all API endpoints are working correctly. The script tests both public and private endpoints, including order placement, cancellation, and editing.
-
-To run the test script:
+A test script (`test_kraken_sandbox.sh`) is included to verify that all API endpoints are working correctly. To run the test script:
 
 ```bash
 # After starting the API server
@@ -159,19 +141,16 @@ The test script will:
 4. Test order cancellation and editing
 5. Verify trades and order history
 
-Successful tests will be marked with a green check mark, while failures will show a red X with error details.
+## Configuring Logging
+
+By default, logging is set to `INFO` which will print all API requests to the console. Set an environment variable `LOG_LEVEL=ERROR` to change this.
 
 ## Admin Dashboard
 
-The Kraken Sandbox includes an admin dashboard that provides a user-friendly interface to view all data in the database, including:
-
-- API Credentials
-- Assets
-- Asset Pairs
-- Account Balances
-- Orders
-- Trades
-
-To access the admin dashboard, navigate to: `http://localhost:5555/admin`. The dashboard provides a single-page application interface with tabs for each data category, allowing you to easily monitor the state of the sandbox environment.
+The Kraken Sandbox includes an admin dashboard at `http://localhost:5555/admin` that provides an interface to view all data in the database.
 
 ![Kraken Sandbox Admin Dashboard](static/sandbox-sc.png)
+
+## Resetting the API
+
+Simply delete the SQLite database in `data/kraken_sandbox.db` and re-run the program. It will regenerate and reseed a new clean database.
