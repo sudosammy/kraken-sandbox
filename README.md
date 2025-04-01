@@ -67,6 +67,7 @@ Umm, fuck that.
 - `/0/private/OpenOrders` - Get open orders
 - `/0/private/AddOrder` - Place a market order
 - `/0/private/ClosedOrders` - Get closed orders
+- `/0/private/QueryOrders` - Get information about specific orders
 - `/0/private/QueryTrades` - Get detailed information about specific trades
 - `/0/private/TradesHistory` - Get trade history
 - `/0/private/CancelOrder` - Cancel an open order

@@ -546,6 +546,142 @@ def closed_orders():
             'result': {}
         }), 500
 
+@bp.route('/QueryOrders', methods=['POST'])
+def query_orders():
+    """Get information about specific orders
+    
+    Endpoint implementation based on:
+    https://docs.kraken.com/api/docs/rest-api/get-orders-info
+    """
+    api_key = request.headers.get('API-Key')
+    
+    # Required parameters
+    txid = request.form.get('txid')
+    
+    if not txid:
+        logger.error("Error in QueryOrders endpoint: Missing required parameter 'txid'")
+        return jsonify({
+            'error': ['EGeneral:Invalid arguments'],
+            'result': {}
+        }), 400
+    
+    # Optional parameters
+    trades = request.form.get('trades', 'false').lower() == 'true'
+    userref = request.form.get('userref')
+    consolidate_taker = request.form.get('consolidate_taker', 'true').lower() == 'true'
+    
+    # Parse list of order IDs
+    order_ids = txid.split(',')
+    
+    # Limit to 50 IDs as per Kraken API specification
+    if len(order_ids) > 50:
+        order_ids = order_ids[:50]
+    
+    db = g.db
+    cursor = db.cursor()
+    
+    try:
+        result = {}
+        
+        for order_id in order_ids:
+            # Build the query based on parameters
+            query = '''SELECT order_id, pair, type, order_type, price, price2, volume, 
+                     executed_volume, status, opened_time, closed_time, user_ref, data
+                     FROM orders WHERE api_key = ? AND order_id = ?'''
+            params = [api_key, order_id]
+            
+            if userref:
+                query += ' AND user_ref = ?'
+                params.append(userref)
+            
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+            
+            if row:
+                # Get additional data from the JSON data field
+                data_json = json.loads(row['data'] or '{}')
+                misc = data_json.get('misc', '')
+                oflags = data_json.get('oflags', '')
+                
+                # Build the order description object
+                descr = {
+                    'pair': row['pair'],
+                    'type': row['type'],
+                    'ordertype': row['order_type'],
+                    'price': row['price'] if row['price'] else '0',
+                    'price2': row['price2'] if row['price2'] else '0',
+                    'leverage': 'none',  # Default leverage
+                    'order': f"{row['type']} {row['volume']} {row['pair']} @ {row['order_type']} {row['price'] if row['price'] else 'market'}",
+                    'close': ""  # No conditional close in this implementation
+                }
+                
+                # Build the order data
+                order_data = {
+                    'refid': None,  # No referral orders in this implementation
+                    'userref': row['user_ref'] if row['user_ref'] else 0,
+                    'status': row['status'],
+                    'reason': None,
+                    'opentm': row['opened_time'],
+                    'starttm': 0,  # Not implemented in this sandbox
+                    'expiretm': 0,  # Not implemented in this sandbox
+                    'descr': descr,
+                    'vol': row['volume'],
+                    'vol_exec': row['executed_volume'],
+                    'cost': '0',  # Will be calculated from trades
+                    'fee': '0',   # Will be calculated from trades
+                    'price': '0', # Will be calculated from trades
+                    'stopprice': '0.00000',  # Default value
+                    'limitprice': '0.00000', # Default value
+                    'misc': misc,
+                    'oflags': oflags,
+                    'trigger': 'last'  # Default trigger method
+                }
+                
+                # Add closetm for closed orders
+                if row['status'] in ['closed', 'canceled', 'expired']:
+                    order_data['closetm'] = row['closed_time'] if row['closed_time'] else 0
+                
+                # Get trade information if executed volume > 0
+                if float(row['executed_volume']) > 0:
+                    cursor.execute(
+                        '''SELECT SUM(cost) as total_cost, SUM(fee) as total_fee, 
+                        AVG(price) as avg_price FROM trades 
+                        WHERE api_key = ? AND order_id = ?''',
+                        (api_key, row['order_id'])
+                    )
+                    trade_summary = cursor.fetchone()
+                    
+                    if trade_summary:
+                        order_data['cost'] = str(trade_summary['total_cost'] or '0')
+                        order_data['fee'] = str(trade_summary['total_fee'] or '0')
+                        order_data['price'] = str(trade_summary['avg_price'] or '0')
+                    
+                    # Add trade IDs if requested
+                    if trades:
+                        cursor.execute(
+                            '''SELECT trade_id FROM trades 
+                            WHERE api_key = ? AND order_id = ?''',
+                            (api_key, row['order_id'])
+                        )
+                        trade_rows = cursor.fetchall()
+                        
+                        if trade_rows:
+                            order_data['trades'] = [row['trade_id'] for row in trade_rows]
+                
+                result[row['order_id']] = order_data
+        
+        return jsonify({
+            'error': [],
+            'result': result
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in QueryOrders endpoint: {str(e)}")
+        return jsonify({
+            'error': ['EGeneral:Internal error'],
+            'result': {}
+        }), 500
+
 @bp.route('/QueryTrades', methods=['POST'])
 def query_trades():
     """Get information about specific trades
