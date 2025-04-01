@@ -5,12 +5,13 @@ import string
 import logging
 import json
 import sys
-from flask import Flask, jsonify, request, g, render_template
+from flask import Flask, jsonify, request, g, render_template, make_response
 from pathlib import Path
 from api import public_endpoints, private_endpoints
 from database import init_db, get_db
 from auth import generate_api_credentials, get_api_credentials
 import utils
+from functools import wraps
 
 # Setup logging
 log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -26,6 +27,16 @@ app = Flask(__name__)
 data_dir = Path('./data')
 data_dir.mkdir(exist_ok=True)
 app.config['DATABASE'] = str(data_dir / 'kraken_sandbox.db')
+
+def no_cache(view):
+    @wraps(view)
+    def no_cache_impl(*args, **kwargs):
+        response = make_response(view(*args, **kwargs))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    return no_cache_impl
 
 @app.before_request
 def before_request():
@@ -73,11 +84,13 @@ def index():
 
 # Admin SPA route
 @app.route('/admin')
+@no_cache
 def admin_dashboard():
     return render_template('index.html')
 
 # Admin API endpoints for the SPA
 @app.route('/admin/api/credentials')
+@no_cache
 def admin_api_credentials():
     db = get_db()
     cursor = db.cursor()
@@ -86,6 +99,7 @@ def admin_api_credentials():
     return jsonify(credentials)
 
 @app.route('/admin/api/assets')
+@no_cache
 def admin_api_assets():
     db = get_db()
     cursor = db.cursor()
@@ -94,6 +108,7 @@ def admin_api_assets():
     return jsonify(assets)
 
 @app.route('/admin/api/asset_pairs')
+@no_cache
 def admin_api_asset_pairs():
     db = get_db()
     cursor = db.cursor()
@@ -102,6 +117,7 @@ def admin_api_asset_pairs():
     return jsonify(pairs)
 
 @app.route('/admin/api/account_balances')
+@no_cache
 def admin_api_account_balances():
     db = get_db()
     cursor = db.cursor()
@@ -110,18 +126,20 @@ def admin_api_account_balances():
     return jsonify(balances)
 
 @app.route('/admin/api/orders')
+@no_cache
 def admin_api_orders():
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('SELECT id, order_id, api_key, pair, type, order_type, price, volume, status, opened_time, closed_time, updated_at FROM orders')
+    cursor.execute('SELECT id, order_id, api_key, pair, type, order_type, price, price2, volume, executed_volume, status, opened_time, closed_time, user_ref, data, updated_at FROM orders')
     orders = [dict(row) for row in cursor.fetchall()]
     return jsonify(orders)
 
 @app.route('/admin/api/trades')
+@no_cache
 def admin_api_trades():
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('SELECT id, trade_id, order_id, api_key, pair, type, price, volume, time, created_at FROM trades')
+    cursor.execute('SELECT id, trade_id, order_id, api_key, pair, type, price, cost, fee, volume, time, data, created_at FROM trades')
     trades = [dict(row) for row in cursor.fetchall()]
     return jsonify(trades)
 

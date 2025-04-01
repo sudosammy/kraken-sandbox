@@ -62,6 +62,15 @@ function setupTabNavigation() {
     });
 }
 
+// Helper function to truncate API key
+function truncateApiKey(apiKey) {
+    // Don't truncate null or undefined values
+    if (!apiKey) return '-';
+    
+    // Show only first 6 characters followed by "..."
+    return apiKey.substring(0, 6) + '...';
+}
+
 // Initialize DataTables with common configurations
 function initializeDataTables() {
     const commonConfig = {
@@ -117,7 +126,7 @@ function initializeDataTables() {
         ...commonConfig,
         columns: [
             { data: 'id' },
-            { data: 'api_key' },
+            { data: 'api_key', render: truncateApiKey },
             { data: 'asset' },
             { data: 'balance' },
             { data: 'updated_at', render: formatDateTime }
@@ -129,13 +138,30 @@ function initializeDataTables() {
         columns: [
             { data: 'id' },
             { data: 'order_id' },
-            { data: 'api_key' },
+            { data: 'api_key', render: truncateApiKey },
             { data: 'pair' },
             { data: 'type' },
             { data: 'order_type' },
             { data: 'price', defaultContent: '-' },
+            { data: 'price2', defaultContent: '-' },
             { data: 'volume' },
-            { data: 'status' }
+            { data: 'executed_volume', defaultContent: '0' },
+            { data: 'status' },
+            { data: 'opened_time', render: formatTimestamp },
+            { data: 'closed_time', render: formatTimestamp },
+            { data: 'user_ref', defaultContent: '-' },
+            { 
+                data: 'data',
+                render: function(data) {
+                    if (!data) return '-';
+                    try {
+                        const jsonObj = typeof data === 'string' ? JSON.parse(data) : data;
+                        return JSON.stringify(jsonObj, null, 2).substring(0, 30) + '...';
+                    } catch (e) {
+                        return data.substring(0, 30) + '...';
+                    }
+                }
+            }
         ]
     });
     
@@ -145,11 +171,26 @@ function initializeDataTables() {
             { data: 'id' },
             { data: 'trade_id' },
             { data: 'order_id' },
-            { data: 'api_key' },
+            { data: 'api_key', render: truncateApiKey },
             { data: 'pair' },
             { data: 'type' },
             { data: 'price' },
-            { data: 'volume' }
+            { data: 'cost', defaultContent: '-' },
+            { data: 'fee', defaultContent: '-' },
+            { data: 'volume' },
+            { data: 'time', render: formatTimestamp },
+            { 
+                data: 'data',
+                render: function(data) {
+                    if (!data) return '-';
+                    try {
+                        const jsonObj = typeof data === 'string' ? JSON.parse(data) : data;
+                        return JSON.stringify(jsonObj, null, 2).substring(0, 30) + '...';
+                    } catch (e) {
+                        return data.substring(0, 30) + '...';
+                    }
+                }
+            }
         ]
     });
 }
@@ -254,6 +295,14 @@ function formatDateTime(dateTimeStr) {
     } catch (e) {
         return dateTimeStr;
     }
+}
+
+// Helper function to format Unix timestamps
+function formatTimestamp(timestamp) {
+    if (!timestamp || timestamp === 0) return '-';
+    
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString();
 }
 
 // Helper function to show error messages
