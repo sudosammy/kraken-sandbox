@@ -140,13 +140,10 @@ def get_market_price(pair):
                 return str(random.uniform(100, 50000))
         except Exception as e:
             logger.error(f"Error fetching market price for {pair}: {str(e)}")
-            # Fallback to fixed values if all API calls fail
-            if 'XBT' in pair or 'BTC' in pair:
-                return str(random.uniform(28000, 32000))
-            elif 'ETH' in pair:
-                return str(random.uniform(1800, 2200))
-            else:
-                return str(random.uniform(100, 50000))
+            # Log and raise exception instead of falling back to random values
+            error_msg = f"Failed to get market price for {pair}. All API calls failed."
+            logger.critical(error_msg)
+            raise Exception(error_msg) from e
 
 def calculate_fee(volume, price, fee_percentage=0.26):
     """Calculate the fee for a trade
