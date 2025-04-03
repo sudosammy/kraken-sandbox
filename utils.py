@@ -68,15 +68,19 @@ def generate_trade_id():
 
 def get_market_price(pair):
     """Get current market price for a trading pair from public APIs"""
-    # Define common browser headers to avoid rate limiting
+    # Define headers that clearly identify as a bot but prevent caching
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'KrakenSandbox-Bot/1.0',
         'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
-        'Referer': 'https://www.google.com/',
-        'Cache-Control': 'no-cache'
+        'X-Bot-Client': 'true',
+        'X-Request-Source': 'kraken-sandbox-api',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     }
+    
+    # Add cache-busting timestamp
+    cache_buster = int(time.time() * 1000)
     
     # Try Kraken API first
     try:
@@ -85,9 +89,11 @@ def get_market_price(pair):
         
         # Construct the Kraken API URL
         url = "https://api.kraken.com/0/public/Ticker"
-        params = {"pair": kraken_pair}
+        params = {"pair": kraken_pair, "_": cache_buster}
         
         response = requests.get(url, headers=headers, params=params, timeout=5)
+        # Disable response caching
+        response.headers["Cache-Control"] = "no-store"
         data = response.json()
         
         # Check for errors
@@ -115,22 +121,22 @@ def get_market_price(pair):
         # Fall back to CoinGecko
         try:
             if pair == 'XXBTZUSD' or pair == 'XBTUSD':
-                url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&_={cache_buster}"
                 response = requests.get(url, headers=headers, timeout=5)
                 data = response.json()
                 return str(data['bitcoin']['usd'])
             elif pair == 'XETHZUSD' or pair == 'ETHUSD':
-                url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&_={cache_buster}"
                 response = requests.get(url, headers=headers, timeout=5)
                 data = response.json()
                 return str(data['ethereum']['usd'])
             elif pair == 'XXBTZAUD' or pair == 'XBTAUD':
-                url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=aud"
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=aud&_={cache_buster}"
                 response = requests.get(url, headers=headers, timeout=5)
                 data = response.json()
                 return str(data['bitcoin']['aud'])
             elif pair == 'XETHZAUD' or pair == 'ETHAUD':
-                url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=aud"
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=aud&_={cache_buster}"
                 response = requests.get(url, headers=headers, timeout=5)
                 data = response.json()
                 return str(data['ethereum']['aud'])
