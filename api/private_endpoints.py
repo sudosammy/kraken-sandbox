@@ -211,6 +211,26 @@ def add_order():
             'error': ['EGeneral:Invalid arguments:price'],
             'result': {}
         }), 400
+        
+    # Validate price decimal precision for fiat currencies
+    if price:
+        is_valid, error_message = utils.validate_price_precision(price, pair)
+        if not is_valid:
+            logger.error(f"Error in AddOrder endpoint: {error_message}")
+            return jsonify({
+                'error': [f'EOrder:{error_message}'],
+                'result': {}
+            }), 400
+    
+    # Validate price2 decimal precision for fiat currencies if present
+    if price2:
+        is_valid, error_message = utils.validate_price_precision(price2, pair)
+        if not is_valid:
+            logger.error(f"Error in AddOrder endpoint: {error_message}")
+            return jsonify({
+                'error': [f'EOrder:{error_message}'],
+                'result': {}
+            }), 400
     
     db = g.db
     cursor = db.cursor()
@@ -1045,6 +1065,26 @@ def edit_order():
             'error': ['EGeneral:No parameters to edit'],
             'result': {}
         }), 400
+        
+    # Validate price decimal precision for fiat currencies
+    if price:
+        is_valid, error_message = utils.validate_price_precision(price, pair)
+        if not is_valid:
+            logger.error(f"Error in EditOrder endpoint: {error_message}")
+            return jsonify({
+                'error': [f'EOrder:{error_message}'],
+                'result': {}
+            }), 400
+    
+    # Validate price2 decimal precision for fiat currencies if present
+    if price2:
+        is_valid, error_message = utils.validate_price_precision(price2, pair)
+        if not is_valid:
+            logger.error(f"Error in EditOrder endpoint: {error_message}")
+            return jsonify({
+                'error': [f'EOrder:{error_message}'],
+                'result': {}
+            }), 400
     
     db = g.db
     cursor = db.cursor()
@@ -1265,6 +1305,29 @@ def amend_order():
                 'error': ['EOrder:Invalid order_qty:New quantity must be greater than executed quantity'],
                 'result': {}
             }), 400
+        
+        # Get the pair for price validation
+        pair = order_row['pair']
+        
+        # Validate limit_price decimal precision for fiat currencies
+        if limit_price:
+            is_valid, error_message = utils.validate_price_precision(limit_price, pair)
+            if not is_valid:
+                logger.error(f"Error in AmendOrder endpoint: {error_message}")
+                return jsonify({
+                    'error': [f'EOrder:{error_message}'],
+                    'result': {}
+                }), 400
+        
+        # Validate trigger_price decimal precision for fiat currencies if present
+        if trigger_price:
+            is_valid, error_message = utils.validate_price_precision(trigger_price, pair)
+            if not is_valid:
+                logger.error(f"Error in AmendOrder endpoint: {error_message}")
+                return jsonify({
+                    'error': [f'EOrder:{error_message}'],
+                    'result': {}
+                }), 400
         
         # Validate display_qty for iceberg orders
         if display_qty and order_qty:

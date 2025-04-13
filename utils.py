@@ -190,6 +190,64 @@ def generate_amend_id():
         parts.append(''.join(random.choices(string.ascii_uppercase, k=6)))
     return '-'.join(parts)
 
+def validate_price_precision(price, pair=None):
+    """Validate that price has the correct number of decimal places for the pair
+    
+    For fiat currency pairs (e.g., USD, AUD), only 2 decimal places are allowed.
+    Returns a tuple of (is_valid, error_message)
+    
+    Args:
+        price: The price to validate as a string
+        pair: The trading pair (e.g., 'ETHAUD', 'XBTUSD')
+        
+    Returns:
+        A tuple (is_valid, error_message)
+    """
+    if price is None:
+        return True, None
+    
+    # If no pair specified, default to allowing the price
+    if not pair:
+        return True, None
+    
+    # Get the quote currency from the pair
+    fiat_currencies = ["ZUSD", "ZAUD", "USD", "AUD"]
+    is_fiat_pair = False
+    
+    # First check if pair directly contains a fiat currency code
+    for fiat in fiat_currencies:
+        if fiat in pair:
+            is_fiat_pair = True
+            break
+    
+    if not is_fiat_pair:
+        # If not found directly, we need to query the database to get the quote currency
+        from flask import g
+        if hasattr(g, 'db'):
+            db = g.db
+            cursor = db.cursor()
+            cursor.execute('SELECT quote FROM asset_pairs WHERE pair_name = ? OR altname = ?', 
+                          (pair, pair))
+            result = cursor.fetchone()
+            
+            if result and result['quote'] in fiat_currencies:
+                is_fiat_pair = True
+    
+    if is_fiat_pair:
+        # For fiat currencies, only allow 2 decimal places
+        try:
+            decimal_price = Decimal(price)
+            price_str = str(decimal_price)
+            if '.' in price_str:
+                integer_part, decimal_part = price_str.split('.')
+                if len(decimal_part) > 2:
+                    fiat = "AUD" if "AUD" in pair else "USD"
+                    return False, f"Invalid price:{pair} price can only be specified up to 2 decimals."
+        except:
+            return False, "Invalid price format"
+    
+    return True, None
+
 def get_kraken_server_time():
     """Get the current Kraken server time"""
     # Instead of calling the real Kraken API, use our sandbox's time
