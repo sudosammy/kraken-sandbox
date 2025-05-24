@@ -38,7 +38,17 @@ def update_account_balances():
                 ('XXBT', '10.0'),      # 10 BTC
                 ('XETH', '100.0'),     # 100 ETH
                 ('ZUSD', '1000000.0'), # 1 million USD
-                ('ZAUD', '1000000.0')  # 1 million AUD
+                ('ZAUD', '1000000.0'), # 1 million AUD
+                # Yield-bearing products (.B) - new balances in yield-bearing products
+                ('XXBT.B', '5.0'),
+                ('XETH.B', '10.0'),
+                ('ZUSD.B', '50000.0'),
+                # Opt-in rewards (.M) - similar to staked balances
+                ('XXBT.M', '2.5'),
+                ('XETH.M', '3.2'),
+                # Kraken Rewards (.F) - automatically earning balances
+                ('ZETH.F', '20.1'),
+                ('XXBT.F', '14.8')
             ]
             
             # Delete existing balances to avoid conflicts

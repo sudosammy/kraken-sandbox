@@ -59,11 +59,16 @@ def asset_pairs():
         if pair:
             pairs = pair.split(',')
             placeholders = ', '.join('?' for _ in pairs)
+            # Use a list to store the query parameters, expanding for both pair_name and altname
+            query_params = []
+            for p in pairs:
+                query_params.extend([p, p])
+            pair_conditions = ' OR '.join(['(pair_name = ? OR altname = ?)'] * len(pairs))
             cursor.execute(
                 f'''SELECT pair_name, altname, wsname, base, quote, pair_decimals, 
                    cost_decimals, lot_decimals, status, data 
-                   FROM asset_pairs WHERE pair_name IN ({placeholders})''',
-                pairs
+                   FROM asset_pairs WHERE {pair_conditions}''',
+                query_params
             )
         else:
             cursor.execute(
@@ -107,7 +112,7 @@ def asset_pairs():
                 pair_data['margin_call'] = additional_data.get('margin_call', 80)
                 pair_data['margin_stop'] = additional_data.get('margin_stop', 40)
             
-            result[row['pair_name']] = pair_data
+            result[row['altname']] = pair_data
         
         return jsonify({
             'error': [],

@@ -63,7 +63,7 @@ Umm, fuck that.
 - `/0/public/SystemStatus` - Get system status
 
 ### Private Endpoints
-- `/0/private/Balance` - Get account balances
+- `/0/private/Balance` - Get account balances (includes assets with .B, .M, and .F appendages)
 - `/0/private/OpenOrders` - Get open orders
 - `/0/private/AddOrder` - Place a market order
 - `/0/private/ClosedOrders` - Get closed orders

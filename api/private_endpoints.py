@@ -26,6 +26,14 @@ def balance():
     
     Endpoint implementation based on:
     https://docs.kraken.com/api/docs/rest-api/get-account-balance
+    
+    Returns all cash balances including assets with new appendages:
+    - .B: Balances in new yield-bearing products
+    - .M: Opt-in rewards balances (similar to .S staked balances) 
+    - .F: Balances earning automatically in Kraken Rewards
+    
+    Note: Assets with .B, .M, and .F appendages are "read-only". 
+    To interact with these balances, use the base asset (e.g. ZUSD for ZUSD.F).
     """
     api_key = request.headers.get('API-Key')
     
@@ -42,6 +50,7 @@ def balance():
         result = {}
         
         for row in rows:
+            # Include all assets, including those with .B, .M, and .F appendages
             result[row['asset']] = row['balance']
         
         return jsonify({

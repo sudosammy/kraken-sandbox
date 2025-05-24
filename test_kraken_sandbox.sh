@@ -6,7 +6,7 @@
 # Check for required parameters
 if [ $# -lt 3 ]; then
     echo "Usage: $0 <hostname> <api_key> <api_secret>"
-    echo "Example: $0 localhost:5000 abcdef123456 XYZABC987654"
+    echo "Example: $0 localhost:5555 abcdef123456 XYZABC987654"
     exit 1
 fi
 

@@ -269,7 +269,17 @@ def seed_account_balances(db, api_key):
         ('XXBT', '100.0'),
         ('XETH', '100.0'),
         ('ZUSD', '1000000.0'),
-        ('ZAUD', '1000000.0')
+        ('ZAUD', '1000000.0'),
+        # Yield-bearing products (.B) - new balances in yield-bearing products
+        ('XXBT.B', '5.0'),
+        ('XETH.B', '10.0'),
+        ('ZUSD.B', '50000.0'),
+        # Opt-in rewards (.M) - similar to staked balances
+        ('XXBT.M', '2.5'),
+        ('XETH.M', '3.2'),
+        # Kraken Rewards (.F) - automatically earning balances
+        ('ZETH.F', '20.1'),
+        ('XXBT.F', '14.8')
     ]
     
     for asset, balance in balances:
@@ -341,6 +351,100 @@ def seed_assets(db):
                 'collateral_value': 0.7,
                 'withdraw_fee': '2.5',
                 'min_withdrawal': '5'
+            })
+        },
+        # Yield-bearing product assets (.B)
+        {
+            'asset': 'XXBT.B',
+            'asset_name': 'XBT.B',
+            'decimals': 10,
+            'display_decimals': 5,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 1.0,
+                'withdraw_fee': '0.0005',
+                'min_withdrawal': '0.0001',
+                'note': 'Yield-bearing XBT product - read-only'
+            })
+        },
+        {
+            'asset': 'XETH.B',
+            'asset_name': 'ETH.B',
+            'decimals': 10,
+            'display_decimals': 5,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 0.8,
+                'withdraw_fee': '0.005',
+                'min_withdrawal': '0.005',
+                'note': 'Yield-bearing ETH product - read-only'
+            })
+        },
+        {
+            'asset': 'ZUSD.B',
+            'asset_name': 'USD.B',
+            'decimals': 4,
+            'display_decimals': 2,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 1.0,
+                'withdraw_fee': '2.5',
+                'min_withdrawal': '5',
+                'note': 'Yield-bearing USD product - read-only'
+            })
+        },
+        # Opt-in rewards assets (.M) - similar to staked
+        {
+            'asset': 'XXBT.M',
+            'asset_name': 'XBT.M',
+            'decimals': 10,
+            'display_decimals': 5,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 1.0,
+                'withdraw_fee': '0.0005',
+                'min_withdrawal': '0.0001',
+                'note': 'Opt-in rewards XBT - read-only'
+            })
+        },
+        {
+            'asset': 'XETH.M',
+            'asset_name': 'ETH.M',
+            'decimals': 10,
+            'display_decimals': 5,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 0.8,
+                'withdraw_fee': '0.005',
+                'min_withdrawal': '0.005',
+                'note': 'Opt-in rewards ETH - read-only'
+            })
+        },
+        # Kraken Rewards assets (.F) - automatically earning
+        {
+            'asset': 'ZETH.F',
+            'asset_name': 'ETH.F',
+            'decimals': 4,
+            'display_decimals': 2,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 0.8,
+                'withdraw_fee': '0.005',
+                'min_withdrawal': '0.005',
+                'note': 'Kraken Rewards ETH - automatically earning'
+            })
+        },
+        {
+            'asset': 'XXBT.F',
+            'asset_name': 'XBT.F',
+            'decimals': 4,
+            'display_decimals': 2,
+            'status': 'active',
+            'data': json.dumps({
+                'collateral_value': 1.0,
+                'withdraw_fee': '0.0005',
+                'min_withdrawal': '0.0001',
+                'note': 'Kraken Rewards XBT - automatically earning'
             })
         }
     ]
