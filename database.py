@@ -278,7 +278,7 @@ def seed_account_balances(db, api_key):
         ('XXBT.M', '2.5'),
         ('XETH.M', '3.2'),
         # Kraken Rewards (.F) - automatically earning balances
-        ('ZETH.F', '20.1'),
+        ('XETH.F', '20.1'),
         ('XXBT.F', '14.8')
     ]
     
@@ -422,7 +422,7 @@ def seed_assets(db):
         },
         # Kraken Rewards assets (.F) - automatically earning
         {
-            'asset': 'ZETH.F',
+            'asset': 'XETH.F',
             'asset_name': 'ETH.F',
             'decimals': 4,
             'display_decimals': 2,

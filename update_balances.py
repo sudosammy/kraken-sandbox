@@ -47,7 +47,7 @@ def update_account_balances():
                 ('XXBT.M', '2.5'),
                 ('XETH.M', '3.2'),
                 # Kraken Rewards (.F) - automatically earning balances
-                ('ZETH.F', '20.1'),
+                ('XETH.F', '20.1'),
                 ('XXBT.F', '14.8')
             ]
             
