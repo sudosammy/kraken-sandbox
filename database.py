@@ -271,15 +271,15 @@ def seed_account_balances(db, api_key):
         ('ZUSD', '1000000.0'),
         ('ZAUD', '1000000.0'),
         # Yield-bearing products (.B) - new balances in yield-bearing products
-        ('XXBT.B', '5.0'),
-        ('XETH.B', '10.0'),
-        ('ZUSD.B', '50000.0'),
+        ('XBT.B', '5.0'),
+        ('ETH.B', '10.0'),
+        ('USD.B', '50000.0'),
         # Opt-in rewards (.M) - similar to staked balances
-        ('XXBT.M', '2.5'),
-        ('XETH.M', '3.2'),
+        ('XBT.M', '2.5'),
+        ('ETH.M', '3.2'),
         # Kraken Rewards (.F) - automatically earning balances
-        ('XETH.F', '20.1'),
-        ('XXBT.F', '14.8')
+        ('ETH.F', '20.1'),
+        ('XBT.F', '14.8')
     ]
     
     for asset, balance in balances:
@@ -355,7 +355,7 @@ def seed_assets(db):
         },
         # Yield-bearing product assets (.B)
         {
-            'asset': 'XXBT.B',
+            'asset': 'XBT.B',
             'asset_name': 'XBT.B',
             'decimals': 10,
             'display_decimals': 5,
@@ -368,7 +368,7 @@ def seed_assets(db):
             })
         },
         {
-            'asset': 'XETH.B',
+            'asset': 'ETH.B',
             'asset_name': 'ETH.B',
             'decimals': 10,
             'display_decimals': 5,
@@ -381,7 +381,7 @@ def seed_assets(db):
             })
         },
         {
-            'asset': 'ZUSD.B',
+            'asset': 'USD.B',
             'asset_name': 'USD.B',
             'decimals': 4,
             'display_decimals': 2,
@@ -395,7 +395,7 @@ def seed_assets(db):
         },
         # Opt-in rewards assets (.M) - similar to staked
         {
-            'asset': 'XXBT.M',
+            'asset': 'XBT.M',
             'asset_name': 'XBT.M',
             'decimals': 10,
             'display_decimals': 5,
@@ -408,7 +408,7 @@ def seed_assets(db):
             })
         },
         {
-            'asset': 'XETH.M',
+            'asset': 'ETH.M',
             'asset_name': 'ETH.M',
             'decimals': 10,
             'display_decimals': 5,
@@ -422,7 +422,7 @@ def seed_assets(db):
         },
         # Kraken Rewards assets (.F) - automatically earning
         {
-            'asset': 'XETH.F',
+            'asset': 'ETH.F',
             'asset_name': 'ETH.F',
             'decimals': 4,
             'display_decimals': 2,
@@ -435,7 +435,7 @@ def seed_assets(db):
             })
         },
         {
-            'asset': 'XXBT.F',
+            'asset': 'XBT.F',
             'asset_name': 'XBT.F',
             'decimals': 4,
             'display_decimals': 2,
